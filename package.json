@@ -1,0 +1,13 @@
+{
+  "name": "compilingtoassembly",
+  "version": "0.1.0",
+  "description": "Compiling to Assembly",
+  "main": "index.ts",
+  "scripts": {
+  },
+  "author": "Rok Novosel",
+  "license": "MIT",
+  "dependencies": {
+    "typescript": "^4.0.3"
+  }
+}
