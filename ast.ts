@@ -48,6 +48,29 @@ export class NumberNode implements AST {
     }
 }
 
+export class BooleanNode implements AST {
+    constructor(public value: boolean) {}
+
+    emit(env: Environment) {
+        const assemblyValue = this.value ? 1 : 0
+        emit(`  mov r0, #${assemblyValue}`)
+    }
+
+    equals(other: AST): boolean {
+        return other instanceof BooleanNode && this.value === other.value;
+    }
+}
+
+export class NullNode implements AST {
+    emit(env: Environment) {
+        emit(`  mov r0, #0`)
+    }
+
+    equals(other: AST): boolean {
+        return other instanceof NullNode;
+    }
+}
+
 export class IdentifierNode implements AST {
     constructor(public value: string) {}
 
@@ -332,5 +355,63 @@ export class WhileNode implements AST {
         return other instanceof WhileNode &&
             this.conditional.equals(other.conditional) &&
             this.body.equals(other.body)
+    }
+}
+
+export class ArrayLiteralNode implements AST {
+    constructor(public args: Array<AST>) {}
+
+    emit(env: Environment): void {
+        const length = this.args.length
+        emit(`  ldr r0, =${4 * (length + 1)}`)
+        emit(`  bl malloc`)
+        emit(`  push {r4, ip}`)
+        emit(`  mov r4, r0`)
+        emit(`  ldr r0, =${length}`)
+        emit(`  str r0, [r4]`)
+        this.args.forEach((element, i) => {
+            element.emit(env)
+            emit(`  str r0, [r4, #${4 * (i + 1)}]`)
+        })
+        emit(`  mov r0, r4`)
+        emit(`  pop {r4, ip}`)
+    }
+
+    equals(AST): boolean {
+        return false;
+    }
+}
+
+export class ArrayLookupNode implements AST {
+    constructor(public array: AST, public index: AST) {}
+
+    emit(env: Environment): void {
+        this.array.emit(env)
+        emit(` push {r0, ip}`)
+        this.index.emit(env)
+        emit(` pop {r1, ip}`)
+        emit(` ldr r2, [r1]`)
+        emit(` cmp r0, r2`)
+        emit(` movhs r0, #0`)
+        emit(` addlo r1, r1, #4`)
+        emit(` lsllo r0, r0, #2`)
+        emit(` ldrlo r0, [r1, r0]`)
+    }
+
+    equals(AST): boolean {
+        return false;
+    }
+}
+
+export class LengthNode implements AST {
+    constructor(public array: AST) {}
+
+    emit(env: Environment): void {
+        this.array.emit(env)
+        emit(` ldr r0, [r0, #0]`)
+    }
+
+    equals(AST): boolean {
+        return false;
     }
 }

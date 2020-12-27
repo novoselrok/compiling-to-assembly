@@ -1,13 +1,22 @@
 import {
-    AddNode, AssignNode, AST, BlockNode, CallNode,
+    AddNode, ArrayLiteralNode, ArrayLookupNode,
+    AssignNode,
+    AST,
+    BlockNode, BooleanNode,
+    CallNode,
     DivideNode,
-    EqualNode, FunctionNode,
-    IdentifierNode, IfNode,
+    EqualNode,
+    FunctionNode,
+    IdentifierNode,
+    IfNode, LengthNode,
     MultiplyNode,
     NotEqualNode,
-    NotNode,
-    NumberNode, ReturnNode,
-    SubtractNode, VarNode, WhileNode
+    NotNode, NullNode,
+    NumberNode,
+    ReturnNode,
+    SubtractNode,
+    VarNode,
+    WhileNode
 } from './ast'
 
 export class Source {
@@ -128,7 +137,12 @@ const LEFT_PAREN = token(/[(]/y)
 const RIGHT_PAREN = token(/[)]/y)
 const LEFT_BRACE = token(/[{]/y)
 const RIGHT_BRACE = token(/[}]/y)
+const LEFT_BRACKET = token(/[\[]/y)
+const RIGHT_BRACKET = token(/[\]]/y)
 
+const TRUE = token(/true\b/y).map(_ => new BooleanNode(true))
+const FALSE = token(/false\b/y).map(_ => new BooleanNode(false))
+const NULL = token(/null\b/y).map(_ => new NullNode())
 const NUMBER = token(/[0-9]+/y).map(digits => new NumberNode(parseInt(digits)))
 const ID = token(/[a-zA-Z_][a-zA-Z0-9_]*/y)
 const id = ID.map(x => new IdentifierNode(x))
@@ -149,9 +163,21 @@ const args: Parser<Array<AST>> = expression.bind(
 
 const call: Parser<AST> = ID.bind(
     callee => LEFT_PAREN.and(
-        args.bind(args_ => RIGHT_PAREN.and(constant(new CallNode(callee, args_))))))
+        args.bind(args_ => RIGHT_PAREN.and(constant(
+            callee == 'length' ? new LengthNode(args_[0]) : new CallNode(callee, args_))))))
 
-const atom: Parser<AST> = call.or(id).or(NUMBER).or(
+const boolean: Parser<AST> = TRUE.or(FALSE)
+
+const scalar: Parser<AST> = boolean.or(NULL).or(id).or(NUMBER)
+
+const arrayLiteral = LEFT_BRACKET.and(args.bind(
+    args_ => RIGHT_BRACKET.and(constant(new ArrayLiteralNode(args_)))))
+
+const arrayLookup = id.bind(
+    array_ => LEFT_BRACKET.and(expression.bind(
+        index => RIGHT_BRACKET.and(constant(new ArrayLookupNode(array_, index))))))
+
+const atom: Parser<AST> = call.or(arrayLiteral).or(arrayLookup).or(scalar).or(
     LEFT_PAREN.and(expression).bind(e => RIGHT_PAREN.and(constant(e))))
 
 const unary: Parser<AST> = maybe(NOT).bind(

@@ -35,7 +35,8 @@ const node = parser.parseStringToCompletion(`
         assert(!0);
         assert(42 == 4 + 2 * (12 - 2) + 3 * (5 + 1));
         assert(7 == 10 - 1 - 1 - 1);
-        // assert(5 == 10 / 2); // Does not work due to error: selected processor does not support udiv r0,r1,r0 in ARM mode
+        assert(2 == 10 / 5);
+        assert(3 == 9 / 3);
         {
         /* Block statement */
             assert(1);
@@ -66,6 +67,15 @@ const node = parser.parseStringToCompletion(`
         assert(a == 0);
         assert(factorial(6) == factorialLoop(6));
         assert(factorial(6) != factorialLoop(10));
+        assert(true);
+        assert(!false);
+        assert(null == null);
+        
+        var arr = [1, 2, 3];
+        assert(arr[0] == 1);
+        assert(arr[1] == 2);
+        assert(arr[2] == 3);
+        assert(length(arr) == 3);
     }
 `)
 
