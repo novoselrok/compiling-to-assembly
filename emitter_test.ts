@@ -1,5 +1,5 @@
 import {parser} from './parser'
-import {Environment} from './ast'
+import {CodeGenerator} from './ast'
 
 const node = parser.parseStringToCompletion(`
     function assert(x) {
@@ -79,5 +79,4 @@ const node = parser.parseStringToCompletion(`
     }
 `)
 
-// @ts-ignore
-node.emit(new Environment(new Map<string, number>(), 0))
+node.visit(new CodeGenerator())
