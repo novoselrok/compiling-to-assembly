@@ -1,0 +1,17 @@
+function assert(x: boolean): void {
+    if (x) {
+        putchar(46);
+    } else {
+        putchar(70);
+    }
+}
+function factorial(n: number): number {
+    if (n == 0) {
+        return 1;
+    } else {
+        return n * factorial(n - 1);
+    }
+}
+function main() {
+    assert(720 == factorial(6));
+}

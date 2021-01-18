@@ -18,6 +18,7 @@ import {
     VarNode,
     WhileNode
 } from './ast'
+import {ArrayType, BooleanType, FunctionType, NumberType, Type, VoidType} from './type'
 
 export class Source {
     constructor(public string: string, public index: number) {
@@ -44,7 +45,7 @@ class ParseResult<T> {
 }
 
 export class Parser<T> {
-    constructor(public parse: (Source) => (ParseResult<T> | null)) {
+    constructor(public parse: (_: Source) => (ParseResult<T> | null)) {
     }
 
     static regexp(regexp: RegExp): Parser<string> {
@@ -121,7 +122,7 @@ const whitespace = regexp(/[ \n\r\t]+/y)
 const comments = regexp(/[/][/].*/y).or(regexp(/[/][*].*?[*][/]/sy))
 const ignored = zeroOrMore(whitespace.or(comments))
 
-const token = pattern => regexp(pattern).bind(value => ignored.and(constant(value)))
+const token = (pattern: RegExp) => regexp(pattern).bind(value => ignored.and(constant(value)))
 
 const FUNCTION = token(/function\b/y)
 const IF = token(/if\b/y)
@@ -129,6 +130,10 @@ const ELSE = token(/else\b/y)
 const RETURN = token(/return\b/y)
 const VAR = token(/var\b/y)
 const WHILE = token(/while\b/y)
+const ARRAY = token(/Array\b/y)
+const VOID = token(/void\b/y)
+const BOOLEAN = token(/boolean\b/y)
+const NUMBER_TOKEN = token(/number\b/y)
 
 const COMMA = token(/[,]/y)
 const SEMICOLON = token(/;/y)
@@ -139,6 +144,9 @@ const LEFT_BRACE = token(/[{]/y)
 const RIGHT_BRACE = token(/[}]/y)
 const LEFT_BRACKET = token(/[\[]/y)
 const RIGHT_BRACKET = token(/[\]]/y)
+const LESS_THAN = token(/[<]/y)
+const GREATER_THAN = token(/[>]/y)
+const COLON = token(/[:]/y)
 
 const TRUE = token(/true\b/y).map(_ => new BooleanNode(true))
 const FALSE = token(/false\b/y).map(_ => new BooleanNode(false))
@@ -154,6 +162,14 @@ const PLUS = token(/[+]/y).map(_ => AddNode)
 const MINUS = token(/[-]/y).map(_ => SubtractNode)
 const STAR = token(/[*]/y).map(_ => MultiplyNode)
 const SLASH = token(/[/]/y).map(_ => DivideNode)
+
+const type: Parser<Type> = error('Type parser used before definition')
+const arrayType = ARRAY.and(LESS_THAN.and(type.bind(type_ => GREATER_THAN.and(constant(new ArrayType(type_))))))
+const typeParser: Parser<Type> = VOID.map(_ => new VoidType())
+    .or(BOOLEAN.map(_ => new BooleanType()))
+    .or(NUMBER_TOKEN.map(_ => new NumberType()))
+    .or(arrayType)
+type.parse = typeParser.parse
 
 const expression: Parser<AST> = error('Expression parser used before definition')
 
@@ -183,7 +199,7 @@ const atom: Parser<AST> = call.or(arrayLiteral).or(arrayLookup).or(scalar).or(
 const unary: Parser<AST> = maybe(NOT).bind(
     not_ => atom.map(term => not_ ? new NotNode(term) : term))
 
-const infix = (operatorParser, termParser) => termParser.bind(
+const infix = (operatorParser: Parser<any>, termParser: Parser<any>) => termParser.bind(
     term => zeroOrMore(
         operatorParser.bind(operator => termParser.bind(term => constant({operator, term})))
     ).map(operatorTerms => operatorTerms.reduce((left, {operator, term}) => new operator(left, term), term)))
@@ -223,14 +239,21 @@ const assignmentStatement: Parser<AST> = ID.bind(
 const blockStatement: Parser<AST> = LEFT_BRACE.and(zeroOrMore(statement)).bind(
     statements => RIGHT_BRACE.and(constant(new BlockNode(statements))))
 
-const parameters: Parser<Array<string>> = ID.bind(
-    param => zeroOrMore(COMMA.and(ID)).bind(
-        params => constant([param, ...params]))).or(constant([]))
+const optionalTypeAnnotation: Parser<Type> = COLON.and(type).or(constant(null))
+
+const parameter: Parser<[string, Type]> = ID.bind(
+    param => optionalTypeAnnotation.bind(type_ => constant([param, type_])))
+
+const parameters: Parser<Map<string, Type>> = parameter.bind(
+    param => zeroOrMore(COMMA.and(parameter)).bind(
+        params => constant(new Map([param, ...params])))).or(constant(new Map()))
 
 const functionStatement: Parser<AST> = FUNCTION.and(ID).bind(
-    name => LEFT_PAREN.and(parameters).bind(
-        parameters_ => RIGHT_PAREN.and(blockStatement).bind(
-            block => constant(new FunctionNode(name, parameters_, block)))))
+    name => LEFT_PAREN.and(parameters.bind(
+        parameters_ => RIGHT_PAREN.and(optionalTypeAnnotation.bind(
+            returnType => blockStatement.bind(
+                block => constant(
+                    new FunctionNode(name, new FunctionType(parameters_, returnType), block))))))))
 
 const statementParser: Parser<AST> =
     returnStatement

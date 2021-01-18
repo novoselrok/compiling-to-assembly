@@ -1,0 +1,11 @@
+function assert(x: boolean): void {
+    if (x) {
+        putchar(46);
+    } else {
+        putchar(70);
+    }
+}
+
+function main() {
+    assert(1 == 1);
+}
